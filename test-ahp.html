@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testes AHP - Validação de Cálculos</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4F46E5;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #ccc;
+        }
+        .test-case.pass {
+            border-left-color: #10B981;
+            background: #D1FAE5;
+        }
+        .test-case.fail {
+            border-left-color: #EF4444;
+            background: #FEE2E2;
+        }
+        .test-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-result {
+            font-family: monospace;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+        .summary {
+            background: #4F46E5;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #4338CA;
+        }
+        .matrix {
+            display: inline-block;
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .matrix-row {
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Suite de Testes - Módulo AHP</h1>
+    <p>Esta página testa os cálculos matemáticos do método AHP implementado.</p>
+    
+    <button onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+    <button onclick="location.reload()">🔄 Limpar Resultados</button>
+    
+    <div id="test-results"></div>
+    <div id="summary"></div>
+
+    <script src="ahp.js"></script>
+    <script>
+        let totalTests = 0;
+        let passedTests = 0;
+        let failedTests = 0;
+
+        function assert(condition, message) {
+            totalTests++;
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case ' + (condition ? 'pass' : 'fail');
+            
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'test-name';
+            nameDiv.textContent = (condition ? '✅ PASSOU: ' : '❌ FALHOU: ') + message;
+            
+            testDiv.appendChild(nameDiv);
+            document.getElementById('test-results').appendChild(testDiv);
+            
+            if (condition) {
+                passedTests++;
+            } else {
+                failedTests++;
+            }
+            
+            return condition;
+        }
+
+        function assertClose(actual, expected, tolerance, message) {
+            const diff = Math.abs(actual - expected);
+            const passed = diff <= tolerance;
+            
+            totalTests++;
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case ' + (passed ? 'pass' : 'fail');
+            
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'test-name';
+            nameDiv.textContent = (passed ? '✅ PASSOU: ' : '❌ FALHOU: ') + message;
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result';
+            resultDiv.innerHTML = `Esperado: ${expected.toFixed(4)}, Obtido: ${actual.toFixed(4)}, Diferença: ${diff.toFixed(6)}`;
+            
+            testDiv.appendChild(nameDiv);
+            testDiv.appendChild(resultDiv);
+            document.getElementById('test-results').appendChild(testDiv);
+            
+            if (passed) {
+                passedTests++;
+            } else {
+                failedTests++;
+            }
+            
+            return passed;
+        }
+
+        function runAllTests() {
+            // Limpar resultados anteriores
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+            totalTests = 0;
+            passedTests = 0;
+            failedTests = 0;
+
+            // Executar suites de teste
+            testMatrixOperations();
+            testPriorityVector();
+            testConsistencyCalculations();
+            testGlobalPriorities();
+            testSaatyScale();
+            testEdgeCases();
+
+            // Exibir resumo
+            displaySummary();
+        }
+
+        function testMatrixOperations() {
+            addSectionHeader('1. Operações de Matriz');
+
+            // Teste 1: Criar matriz vazia
+            const matrix = AHP.createEmptyMatrix(3);
+            assert(matrix.length === 3, 'Matriz criada com tamanho correto');
+            assert(matrix[0][0] === 1, 'Diagonal principal inicializada com 1');
+
+            // Teste 2: Atualizar matriz com reciprocidade
+            AHP.updateMatrix(matrix, 0, 1, 5);
+            assertClose(matrix[0][1], 5, 0.001, 'Valor direto atualizado corretamente');
+            assertClose(matrix[1][0], 0.2, 0.001, 'Valor recíproco calculado corretamente (1/5)');
+
+            // Teste 3: Verificar completude
+            const incompleteMatrix = AHP.createEmptyMatrix(3);
+            assert(!AHP.isMatrixComplete(incompleteMatrix), 'Detecta matriz incompleta');
+            
+            AHP.updateMatrix(incompleteMatrix, 0, 1, 3);
+            AHP.updateMatrix(incompleteMatrix, 0, 2, 5);
+            AHP.updateMatrix(incompleteMatrix, 1, 2, 3);
+            assert(AHP.isMatrixComplete(incompleteMatrix), 'Detecta matriz completa');
+        }
+
+        function testPriorityVector() {
+            addSectionHeader('2. Cálculo de Vetor de Prioridades');
+
+            // Matriz de exemplo do livro de Saaty
+            // Preço muito mais importante que qualidade e qualidade mais importante que sabor
+            const matrix = [
+                [1,   5,   9],
+                [1/5, 1,   3],
+                [1/9, 1/3, 1]
+            ];
+
+            const priorities = AHP.calculatePriorityVector(matrix);
+
+            // Teste normalização
+            const sum = priorities.reduce((a, b) => a + b, 0);
+            assertClose(sum, 1.0, 0.001, 'Vetor de prioridades normalizado (soma = 1)');
+
+            // Teste valores aproximados
+            assertClose(priorities[0], 0.72, 0.05, 'Prioridade do elemento mais importante (~72%)');
+            assertClose(priorities[1], 0.20, 0.05, 'Prioridade do elemento intermediário (~20%)');
+            assertClose(priorities[2], 0.08, 0.05, 'Prioridade do elemento menos importante (~8%)');
+
+            // Teste ordem
+            assert(priorities[0] > priorities[1], 'Ordem de prioridades mantida (1 > 2)');
+            assert(priorities[1] > priorities[2], 'Ordem de prioridades mantida (2 > 3)');
+        }
+
+        function testConsistencyCalculations() {
+            addSectionHeader('3. Cálculos de Consistência');
+
+            // Matriz perfeitamente consistente
+            const consistentMatrix = [
+                [1,   3,   9],
+                [1/3, 1,   3],
+                [1/9, 1/3, 1]
+            ];
+
+            const analysis1 = AHP.analyzeConsistency(consistentMatrix);
+            assertClose(analysis1.lambdaMax, 3.0, 0.05, 'Lambda max próximo de n para matriz consistente');
+            assertClose(analysis1.ci, 0, 0.05, 'CI próximo de zero para matriz consistente');
+            assert(analysis1.isConsistent, 'Matriz consistente identificada (CR ≤ 0.10)');
+
+            // Matriz levemente inconsistente
+            const inconsistentMatrix = [
+                [1,   3,   5],
+                [1/3, 1,   3],
+                [1/5, 1/3, 1]
+            ];
+
+            const analysis2 = AHP.analyzeConsistency(inconsistentMatrix);
+            assert(analysis2.lambdaMax >= 3, 'Lambda max ≥ n (propriedade matemática)');
+            assert(analysis2.ci >= 0, 'CI não-negativo');
+            assert(analysis2.cr >= 0, 'CR não-negativo');
+
+            // Matriz pequena (sempre consistente)
+            const smallMatrix = [
+                [1,   3],
+                [1/3, 1]
+            ];
+
+            const analysis3 = AHP.analyzeConsistency(smallMatrix);
+            assert(analysis3.isConsistent, 'Matriz 2x2 sempre consistente');
+            assertClose(analysis3.cr, 0, 0.001, 'CR = 0 para matriz 2x2');
+        }
+
+        function testGlobalPriorities() {
+            addSectionHeader('4. Cálculo de Prioridades Globais');
+
+            // Pesos dos critérios
+            const criteriaPriorities = [0.6, 0.3, 0.1];
+
+            // Prioridades das alternativas em cada critério
+            const alternativesPriorities = [
+                [0.5, 0.3, 0.2],  // Critério 1
+                [0.2, 0.5, 0.3],  // Critério 2
+                [0.3, 0.3, 0.4]   // Critério 3
+            ];
+
+            const global = AHP.calculateGlobalPriorities(criteriaPriorities, alternativesPriorities);
+
+            // Teste soma = 1
+            const sum = global.reduce((a, b) => a + b, 0);
+            assertClose(sum, 1.0, 0.001, 'Prioridades globais normalizadas');
+
+            // Teste valores esperados (calculados manualmente)
+            // Alt 1: 0.6*0.5 + 0.3*0.2 + 0.1*0.3 = 0.3 + 0.06 + 0.03 = 0.39
+            assertClose(global[0], 0.39, 0.01, 'Prioridade global alternativa 1 calculada corretamente');
+
+            // Alt 2: 0.6*0.3 + 0.3*0.5 + 0.1*0.3 = 0.18 + 0.15 + 0.03 = 0.36
+            assertClose(global[1], 0.36, 0.01, 'Prioridade global alternativa 2 calculada corretamente');
+
+            // Alt 3: 0.6*0.2 + 0.3*0.3 + 0.1*0.4 = 0.12 + 0.09 + 0.04 = 0.25
+            assertClose(global[2], 0.25, 0.01, 'Prioridade global alternativa 3 calculada corretamente');
+        }
+
+        function testSaatyScale() {
+            addSectionHeader('5. Conversão da Escala de Saaty');
+
+            // Teste slider para Saaty
+            assertClose(AHP.sliderToSaatyValue(0), 1, 0.001, 'Slider 0 = Saaty 1 (igual)');
+            assertClose(AHP.sliderToSaatyValue(5), 5, 0.001, 'Slider 5 = Saaty 5');
+            assertClose(AHP.sliderToSaatyValue(9), 9, 0.001, 'Slider 9 = Saaty 9');
+            assertClose(AHP.sliderToSaatyValue(-3), 1/3, 0.001, 'Slider -3 = Saaty 1/3');
+            assertClose(AHP.sliderToSaatyValue(-9), 1/9, 0.001, 'Slider -9 = Saaty 1/9');
+
+            // Teste Saaty para slider
+            assertClose(AHP.saatyValueToSlider(1), 0, 0.001, 'Saaty 1 = Slider 0');
+            assertClose(AHP.saatyValueToSlider(7), 7, 0.001, 'Saaty 7 = Slider 7');
+            assertClose(AHP.saatyValueToSlider(1/5), -5, 0.001, 'Saaty 1/5 = Slider -5');
+
+            // Teste round-trip
+            const testValues = [1, 3, 5, 7, 9, 1/3, 1/5, 1/7, 1/9];
+            testValues.forEach(val => {
+                const slider = AHP.saatyValueToSlider(val);
+                const back = AHP.sliderToSaatyValue(slider);
+                assertClose(back, val, 0.001, `Round-trip preserva valor ${val}`);
+            });
+
+            // Teste descrições
+            assert(AHP.getSaatyDescription(1).includes('Igual'), 'Descrição para valor 1');
+            assert(AHP.getSaatyDescription(9).includes('extrema'), 'Descrição para valor 9');
+        }
+
+        function testEdgeCases() {
+            addSectionHeader('6. Casos Extremos e Edge Cases');
+
+            // Matriz vazia
+            const emptyAnalysis = AHP.analyzeConsistency([]);
+            assert(emptyAnalysis.isConsistent, 'Matriz vazia considerada consistente');
+            assert(emptyAnalysis.priorities.length === 0, 'Matriz vazia retorna vetor vazio');
+
+            // Matriz 1x1
+            const singleAnalysis = AHP.analyzeConsistency([[1]]);
+            assert(singleAnalysis.isConsistent, 'Matriz 1x1 consistente');
+            assertClose(singleAnalysis.priorities[0], 1.0, 0.001, 'Matriz 1x1 tem prioridade 100%');
+
+            // Matriz identidade
+            const identityMatrix = AHP.createEmptyMatrix(4);
+            const identityAnalysis = AHP.analyzeConsistency(identityMatrix);
+            assert(identityAnalysis.isConsistent, 'Matriz identidade consistente');
+            
+            // Todas prioridades devem ser iguais
+            const avgPriority = 1 / identityMatrix.length;
+            identityAnalysis.priorities.forEach(p => {
+                assertClose(p, avgPriority, 0.01, 'Matriz identidade tem prioridades iguais');
+            });
+
+            // Formatação
+            assert(AHP.formatNumber(0.5).includes('50'), 'Formatação de percentual');
+            assert(AHP.formatCR(0.0523).includes('0.0523'), 'Formatação de CR');
+        }
+
+        function addSectionHeader(title) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `<h2>${title}</h2>`;
+            document.getElementById('test-results').appendChild(section);
+        }
+
+        function displaySummary() {
+            const summaryDiv = document.getElementById('summary');
+            const percentage = totalTests > 0 ? ((passedTests / totalTests) * 100).toFixed(1) : 0;
+            
+            summaryDiv.innerHTML = `
+                <div class="summary">
+                    📊 Resumo dos Testes: ${passedTests}/${totalTests} passaram (${percentage}%)
+                    ${failedTests > 0 ? '❌ ' + failedTests + ' testes falharam!' : '🎉 Todos os testes passaram!'}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
+

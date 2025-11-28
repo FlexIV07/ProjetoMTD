@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AHP Decisor Universal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>🎯 AHP Decisor Universal</h1>
+            <p class="subtitle">Método Analítico de Hierarquia para Decisões Complexas</p>
+        </header>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">Objetivo</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">Critérios</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">Alternativas</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">Julgamentos</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="5">
+                <div class="step-number">5</div>
+                <div class="step-label">Resultados</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Passo 1: Objetivo -->
+            <section id="step-1" class="step-content active">
+                <h2>📌 Defina o Objetivo da Decisão</h2>
+                <p class="help-text">Descreva o que você deseja alcançar ou decidir</p>
+                <div class="form-group">
+                    <label for="objective-input">Objetivo:</label>
+                    <input type="text" id="objective-input" placeholder="Ex: Comprar um Carro Novo" class="input-field">
+                    <small class="input-hint">Seja claro e específico sobre sua decisão</small>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary" id="load-project-btn">📂 Carregar Projeto</button>
+                    <button class="btn btn-primary" onclick="nextStep()">Próximo →</button>
+                </div>
+            </section>
+
+            <!-- Passo 2: Critérios -->
+            <section id="step-2" class="step-content">
+                <h2>📊 Defina os Critérios de Avaliação</h2>
+                <p class="help-text">Adicione os fatores importantes para sua decisão (mínimo 2, máximo 10)</p>
+                
+                <!-- Toggle para modo de peso -->
+                <div class="weight-mode-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="manual-weights-toggle" onchange="toggleWeightMode()">
+                        <span class="toggle-text">
+                            <span class="toggle-icon">⚖️</span>
+                            Definir pesos manualmente (ao invés de comparar depois)
+                        </span>
+                    </label>
+                    <small class="toggle-hint">Ative se você já sabe a importância relativa de cada critério</small>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-button">
+                        <input type="text" id="criteria-input" placeholder="Ex: Preço, Segurança, Consumo" class="input-field">
+                        <input type="number" id="criteria-weight-input" placeholder="Peso (%)" class="input-field weight-input" min="0" max="100" step="0.1" style="display: none;">
+                        <button class="btn btn-add" onclick="addCriterion()">➕ Adicionar</button>
+                    </div>
+                </div>
+                
+                <div id="criteria-weight-summary" class="weight-summary" style="display: none;">
+                    <div class="weight-summary-content">
+                        <span class="weight-label">Soma dos pesos:</span>
+                        <span id="weight-total" class="weight-total">0%</span>
+                        <span id="weight-status" class="weight-status"></span>
+                    </div>
+                </div>
+
+                <div id="criteria-list" class="items-list"></div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
+                    <button class="btn btn-primary" onclick="nextStep()">Próximo →</button>
+                </div>
+            </section>
+
+            <!-- Passo 3: Alternativas -->
+            <section id="step-3" class="step-content">
+                <h2>🎲 Defina as Alternativas</h2>
+                <p class="help-text">Adicione as opções que serão avaliadas (mínimo 2, máximo 10)</p>
+                <div class="form-group">
+                    <div class="input-with-button">
+                        <input type="text" id="alternative-input" placeholder="Ex: Modelo X, Modelo Y, Modelo Z" class="input-field">
+                        <button class="btn btn-add" onclick="addAlternative()">➕ Adicionar</button>
+                    </div>
+                </div>
+                <div id="alternatives-list" class="items-list"></div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
+                    <button class="btn btn-primary" onclick="nextStep()">Próximo →</button>
+                </div>
+            </section>
+
+            <!-- Passo 4: Julgamentos -->
+            <section id="step-4" class="step-content">
+                <h2>⚖️ Julgamentos Par a Par</h2>
+                <p class="help-text">Compare os elementos usando a Escala de Saaty</p>
+                
+                <!-- Tabs for Criteria vs Alternatives -->
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="criteria-judgments">Comparar Critérios</button>
+                    <button class="tab-button" data-tab="alternatives-judgments">Comparar Alternativas</button>
+                </div>
+
+                <!-- Criteria Judgments -->
+                <div id="criteria-judgments" class="tab-content active">
+                    <div class="judgments-header">
+                        <h3>Comparação dos Critérios</h3>
+                        <p>Em relação ao objetivo: <strong id="objective-display-1"></strong></p>
+                        <div id="criteria-consistency" class="consistency-info"></div>
+                    </div>
+                    <div id="criteria-comparisons" class="comparisons-container"></div>
+                </div>
+
+                <!-- Alternatives Judgments -->
+                <div id="alternatives-judgments" class="tab-content">
+                    <div class="judgments-header">
+                        <h3>Comparação das Alternativas</h3>
+                        <div class="criterion-selector">
+                            <label>Critério atual:</label>
+                            <select id="current-criterion" class="select-field"></select>
+                        </div>
+                        <div id="alternatives-consistency" class="consistency-info"></div>
+                    </div>
+                    <div id="alternatives-comparisons" class="comparisons-container"></div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
+                    <button class="btn btn-primary" onclick="calculateResults()">Calcular Resultados →</button>
+                </div>
+            </section>
+
+            <!-- Passo 5: Resultados -->
+            <section id="step-5" class="step-content">
+                <h2>🏆 Resultados da Análise AHP</h2>
+                
+                <div class="results-overview">
+                    <div class="result-card">
+                        <h3>Ranking das Alternativas</h3>
+                        <div id="ranking-list" class="ranking-container"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>Distribuição de Prioridades</h3>
+                        <canvas id="priorities-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="result-card">
+                    <h3>Análise Detalhada por Critério</h3>
+                    <div id="detailed-analysis" class="detailed-table"></div>
+                </div>
+
+                <div class="result-card">
+                    <h3>Pesos dos Critérios</h3>
+                    <canvas id="criteria-chart"></canvas>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
+                    <button class="btn btn-success" id="save-project-btn">💾 Salvar Projeto</button>
+                    <button class="btn btn-primary" onclick="resetApp()">🔄 Nova Análise</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Loading Projects -->
+    <div id="load-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeLoadModal()">&times;</span>
+            <h2>📂 Projetos Salvos</h2>
+            <div id="projects-list"></div>
+        </div>
+    </div>
+
+    <!-- Saaty Scale Reference -->
+    <div class="scale-reference">
+        <button class="scale-toggle" onclick="toggleScaleReference()">❓ Escala de Saaty</button>
+        <div class="scale-content" id="scale-content">
+            <h4>Escala Fundamental de Saaty</h4>
+            <table>
+                <tr><th>Valor</th><th>Definição</th></tr>
+                <tr><td>1</td><td>Igual importância</td></tr>
+                <tr><td>3</td><td>Importância moderada</td></tr>
+                <tr><td>5</td><td>Importância forte</td></tr>
+                <tr><td>7</td><td>Importância muito forte</td></tr>
+                <tr><td>9</td><td>Importância extrema</td></tr>
+                <tr><td>2, 4, 6, 8</td><td>Valores intermediários</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="ahp.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
