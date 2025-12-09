@@ -8,8 +8,6 @@ const appState = {
     currentStep: 1,
     objective: '',
     criteria: [],
-    criteriaWeights: [], // Pesos manuais dos critérios (se definidos)
-    useManualWeights: false, // Se true, usa pesos manuais ao invés de comparações
     alternatives: [],
     criteriaMatrix: [],
     alternativesMatrices: {}, // { criterionIndex: matrix }
@@ -18,8 +16,11 @@ const appState = {
     results: null,
     charts: {
         priorities: null,
-        criteria: null
-    }
+        criteria: null,
+        tornado: null,
+        sensitivityLines: null
+    },
+    sensitivityWeights: [] // Pesos temporários para análise de sensibilidade
 };
 
 // ============================================================
@@ -84,26 +85,8 @@ function nextStep() {
             showAlert('Adicione pelo menos 2 critérios!', 'warning');
             return;
         }
-        
-        // Se usar pesos manuais, validar soma
-        if (appState.useManualWeights) {
-            const total = appState.criteriaWeights.reduce((sum, w) => sum + w, 0);
-            if (Math.abs(total - 100) > 0.1) {
-                showAlert(`A soma dos pesos deve ser 100%! Atual: ${total.toFixed(1)}%`, 'warning');
-                return;
-            }
-            // Normalizar pesos para análise (converter para decimal)
-            appState.criteriaAnalysis = {
-                priorities: appState.criteriaWeights.map(w => w / 100),
-                lambdaMax: appState.criteria.length,
-                ci: 0,
-                cr: 0,
-                isConsistent: true
-            };
-        } else {
-            // Inicializar matriz de critérios para comparações
-            initializeCriteriaMatrix();
-        }
+        // Inicializar matriz de critérios para comparações AHP
+        initializeCriteriaMatrix();
     }
 
     if (currentStep === 3) {
@@ -111,7 +94,7 @@ function nextStep() {
             showAlert('Adicione pelo menos 2 alternativas!', 'warning');
             return;
         }
-        // Inicializar matrizes de alternativas
+        // Inicializar matrizes de alternativas para comparações AHP
         initializeAlternativesMatrices();
         // Preparar interface de julgamentos
         prepareJudgmentsStep();
@@ -167,32 +150,8 @@ function updateStepDisplay() {
 // PASSO 2: GERENCIAMENTO DE CRITÉRIOS
 // ============================================================
 
-function toggleWeightMode() {
-    const toggle = document.getElementById('manual-weights-toggle');
-    const weightInput = document.getElementById('criteria-weight-input');
-    const weightSummary = document.getElementById('criteria-weight-summary');
-    
-    appState.useManualWeights = toggle.checked;
-    
-    if (toggle.checked) {
-        weightInput.style.display = 'block';
-        weightSummary.style.display = 'block';
-        
-        // Se já existem critérios sem peso, pedir para adicionar
-        if (appState.criteria.length > 0 && appState.criteriaWeights.length === 0) {
-            showAlert('Agora você pode editar os critérios para definir seus pesos!', 'info');
-        }
-    } else {
-        weightInput.style.display = 'none';
-        weightSummary.style.display = 'none';
-    }
-    
-    renderCriteriaList();
-}
-
 function addCriterion() {
     const input = document.getElementById('criteria-input');
-    const weightInput = document.getElementById('criteria-weight-input');
     const value = input.value.trim();
 
     if (!value) {
@@ -211,53 +170,13 @@ function addCriterion() {
     }
 
     appState.criteria.push(value);
-    
-    // Se modo manual está ativo, adicionar peso
-    if (appState.useManualWeights) {
-        const weight = parseFloat(weightInput.value) || 0;
-        appState.criteriaWeights.push(weight);
-        weightInput.value = '';
-        updateWeightSummary();
-    }
-    
     input.value = '';
     renderCriteriaList();
 }
 
 function removeCriterion(index) {
     appState.criteria.splice(index, 1);
-    if (appState.useManualWeights) {
-        appState.criteriaWeights.splice(index, 1);
-        updateWeightSummary();
-    }
     renderCriteriaList();
-}
-
-function updateCriterionWeight(index, newWeight) {
-    appState.criteriaWeights[index] = parseFloat(newWeight) || 0;
-    updateWeightSummary();
-}
-
-function updateWeightSummary() {
-    const total = appState.criteriaWeights.reduce((sum, w) => sum + w, 0);
-    const totalElement = document.getElementById('weight-total');
-    const statusElement = document.getElementById('weight-status');
-    
-    totalElement.textContent = total.toFixed(1) + '%';
-    
-    if (Math.abs(total - 100) < 0.1) {
-        totalElement.className = 'weight-total valid';
-        statusElement.innerHTML = '✅ Perfeito!';
-        statusElement.className = 'weight-status valid';
-    } else if (total > 100) {
-        totalElement.className = 'weight-total invalid';
-        statusElement.innerHTML = '❌ Acima de 100%';
-        statusElement.className = 'weight-status invalid';
-    } else {
-        totalElement.className = 'weight-total incomplete';
-        statusElement.innerHTML = `⚠️ Faltam ${(100 - total).toFixed(1)}%`;
-        statusElement.className = 'weight-status incomplete';
-    }
 }
 
 function renderCriteriaList() {
@@ -268,37 +187,12 @@ function renderCriteriaList() {
         return;
     }
 
-    if (appState.useManualWeights) {
-        // Modo com pesos
-        container.innerHTML = appState.criteria.map((criterion, index) => {
-            const weight = appState.criteriaWeights[index] || 0;
-            return `
-                <div class="item with-weight">
-                    <span class="item-text">${index + 1}. ${criterion}</span>
-                    <div class="item-weight">
-                        <input type="number" 
-                            class="weight-input-small" 
-                            value="${weight}" 
-                            min="0" 
-                            max="100" 
-                            step="0.1"
-                            oninput="updateCriterionWeight(${index}, this.value)"
-                            placeholder="Peso %">
-                        <span class="weight-symbol">%</span>
-                    </div>
-                    <button class="btn-remove" onclick="removeCriterion(${index})">✖</button>
-                </div>
-            `;
-        }).join('');
-    } else {
-        // Modo tradicional (sem pesos)
-        container.innerHTML = appState.criteria.map((criterion, index) => `
-            <div class="item">
-                <span class="item-text">${index + 1}. ${criterion}</span>
-                <button class="btn-remove" onclick="removeCriterion(${index})">✖</button>
-            </div>
-        `).join('');
-    }
+    container.innerHTML = appState.criteria.map((criterion, index) => `
+        <div class="item">
+            <span class="item-text">${index + 1}. ${criterion}</span>
+            <button class="btn-remove" onclick="removeCriterion(${index})">✖</button>
+        </div>
+    `).join('');
 }
 
 // ============================================================
@@ -380,22 +274,8 @@ function prepareJudgmentsStep() {
         `<option value="${index}">${criterion}</option>`
     ).join('');
 
-    // Se usar pesos manuais, esconder aba de comparação de critérios
-    const criteriaTab = document.querySelector('[data-tab="criteria-judgments"]');
-    const criteriaContent = document.getElementById('criteria-judgments');
-    
-    if (appState.useManualWeights) {
-        criteriaTab.style.display = 'none';
-        criteriaContent.style.display = 'none';
-        // Ativar automaticamente a aba de alternativas
-        switchTab('alternatives-judgments');
-    } else {
-        criteriaTab.style.display = 'block';
-        // Renderizar comparações de critérios
-        renderCriteriaComparisons();
-    }
-    
-    // Sempre renderizar comparações de alternativas
+    // Renderizar comparações (método AHP puro - sempre via comparações)
+    renderCriteriaComparisons();
     renderAlternativesComparisons(0);
 }
 
@@ -456,12 +336,23 @@ function createComparisonSlider(id, elementA, elementB, currentValue, isCriteria
         ? `onSliderInput(this, '${id}', ${i}, ${j}, true, '${elementA}', '${elementB}')`
         : `onSliderInput(this, '${id}', ${i}, ${j}, false, '${elementA}', '${elementB}', ${criterionIndex})`;
     
+    // Determinar o ID do indicador de consistência baseado no tipo
+    const consistencyIndicatorId = isCriteria 
+        ? 'criteria-inline-cr' 
+        : `alternatives-inline-cr-${criterionIndex}`;
+    
     return `
         <div class="comparison-item">
-            <div class="comparison-labels">
-                <span class="label-left">${elementA}</span>
-                <span class="label-center">vs</span>
-                <span class="label-right">${elementB}</span>
+            <div class="comparison-item-header">
+                <div class="comparison-labels">
+                    <span class="label-left">${elementA}</span>
+                    <span class="label-center">vs</span>
+                    <span class="label-right">${elementB}</span>
+                </div>
+                <div class="inline-consistency-badge" id="${consistencyIndicatorId}">
+                    <span class="cr-label">CR:</span>
+                    <span class="cr-value">--</span>
+                </div>
             </div>
             <div class="slider-container">
                 <span class="slider-label-left">${elementA}</span>
@@ -530,6 +421,9 @@ function updateCriteriaConsistency() {
     
     const container = document.getElementById('criteria-consistency');
     container.innerHTML = formatConsistencyInfo(analysis);
+    
+    // Atualizar todos os badges inline de consistência nos itens de comparação
+    updateInlineConsistencyBadges('criteria-inline-cr', analysis);
 }
 
 function updateAlternativesConsistency(criterionIndex) {
@@ -539,32 +433,120 @@ function updateAlternativesConsistency(criterionIndex) {
     
     const container = document.getElementById('alternatives-consistency');
     container.innerHTML = formatConsistencyInfo(analysis);
+    
+    // Atualizar todos os badges inline de consistência nos itens de comparação
+    updateInlineConsistencyBadges(`alternatives-inline-cr-${criterionIndex}`, analysis);
+}
+
+function updateInlineConsistencyBadges(badgeId, analysis) {
+    // Encontrar todos os badges com o mesmo ID (um por comparison-item)
+    const badges = document.querySelectorAll(`#${badgeId}`);
+    
+    badges.forEach(badge => {
+        const crValueElement = badge.querySelector('.cr-value');
+        const crClass = analysis.isConsistent ? 'consistent' : 'inconsistent';
+        
+        if (crValueElement) {
+            crValueElement.textContent = AHP.formatCR(analysis.cr);
+            
+            // Remover classes anteriores e adicionar a nova
+            badge.classList.remove('consistent', 'inconsistent');
+            badge.classList.add(crClass);
+            
+            // Adicionar ícone de status
+            const iconSpan = badge.querySelector('.cr-status-icon');
+            const icon = analysis.isConsistent ? '✅' : '⚠️';
+            
+            if (iconSpan) {
+                iconSpan.textContent = icon;
+            } else {
+                // Criar ícone se não existir
+                const newIcon = document.createElement('span');
+                newIcon.className = 'cr-status-icon';
+                newIcon.textContent = icon;
+                badge.appendChild(newIcon);
+            }
+        }
+    });
 }
 
 function formatConsistencyInfo(analysis) {
     const crClass = analysis.isConsistent ? 'consistent' : 'inconsistent';
-    const crStatus = analysis.isConsistent ? '✓ Consistente' : '⚠ Inconsistente';
+    const crStatus = analysis.isConsistent ? '✅ Consistente' : '❌ Inconsistente';
+    const n = analysis.priorities.length;
+    
+    // Calcular percentual de "qualidade" da consistência
+    const crPercentage = analysis.cr <= 0 ? 100 : Math.max(0, Math.min(100, (1 - analysis.cr / 0.10) * 100));
     
     return `
-        <div class="consistency-badge ${crClass}">
-            <strong>Razão de Consistência (CR):</strong> ${AHP.formatCR(analysis.cr)}
-            <span class="status">${crStatus}</span>
+        <div class="consistency-inline-grid">
+            <div class="consistency-inline-metric">
+                <span class="inline-label">λmax:</span>
+                <span class="inline-value">${analysis.lambdaMax.toFixed(3)}</span>
+            </div>
+            
+            <div class="consistency-inline-metric">
+                <span class="inline-label">CI:</span>
+                <span class="inline-value">${analysis.ci.toFixed(4)}</span>
+            </div>
+            
+            <div class="consistency-inline-metric highlight">
+                <span class="inline-label">CR:</span>
+                <span class="inline-value ${crClass}">${AHP.formatCR(analysis.cr)}</span>
+            </div>
+            
+            <div class="consistency-inline-metric status-inline">
+                <span class="inline-status ${crClass}">${crStatus}</span>
+            </div>
         </div>
-        ${!analysis.isConsistent ? '<p class="warning-text">⚠️ CR > 0.10: Revise seus julgamentos para melhorar a consistência.</p>' : ''}
+        
+        <div class="consistency-bar-container">
+            <div class="consistency-bar-full">
+                <div class="consistency-bar-fill ${crClass}" style="width: ${crPercentage}%"></div>
+            </div>
+            <span class="consistency-bar-label">Qualidade: ${crPercentage.toFixed(0)}%</span>
+        </div>
+        
+        ${!analysis.isConsistent ? `
+            <div class="consistency-alert-compact">
+                <span class="alert-icon">⚠️</span>
+                <span class="alert-text">
+                    <strong>Inconsistente!</strong> CR = ${AHP.formatCR(analysis.cr)} > 0.10. 
+                    Revise as comparações para melhorar a coerência lógica.
+                </span>
+            </div>
+        ` : `
+            <div class="consistency-success-compact">
+                <span class="success-icon">✅</span>
+                <span class="success-text">
+                    <strong>Consistente!</strong> CR = ${AHP.formatCR(analysis.cr)} ≤ 0.10. 
+                    Julgamentos logicamente coerentes.
+                </span>
+            </div>
+        `}
     `;
 }
 
 function validateAllJudgments() {
-    // Verificar consistência dos critérios (apenas se não usar pesos manuais)
-    if (!appState.useManualWeights && !appState.criteriaAnalysis.isConsistent) {
-        showAlert('A comparação dos critérios está inconsistente (CR > 0.10). Por favor, revise seus julgamentos!', 'error');
+    // Método AHP: SEMPRE validar consistência das comparações
+    
+    // Verificar consistência dos critérios
+    if (!appState.criteriaAnalysis) {
+        showAlert('Complete as comparações dos critérios!', 'warning');
+        switchTab('criteria-judgments');
+        return false;
+    }
+    
+    if (!appState.criteriaAnalysis.isConsistent) {
+        showAlert(`❌ INCONSISTÊNCIA DETECTADA nos Critérios!\n\nCR = ${AHP.formatCR(appState.criteriaAnalysis.cr)} (máximo permitido: 0.10)\n\nO método AHP exige consistência lógica nas comparações. Por favor, revise seus julgamentos para garantir coerência.`, 'error');
         switchTab('criteria-judgments');
         return false;
     }
 
-    // Verificar se todas as alternativas foram julgadas e estão consistentes
+    // Verificar consistência das alternativas
     for (let i = 0; i < appState.criteria.length; i++) {
         const analysis = appState.alternativesAnalysis[i];
+        
         if (!analysis) {
             showAlert(`Complete os julgamentos para o critério: ${appState.criteria[i]}`, 'warning');
             document.getElementById('current-criterion').value = i;
@@ -572,8 +554,9 @@ function validateAllJudgments() {
             switchTab('alternatives-judgments');
             return false;
         }
+        
         if (!analysis.isConsistent) {
-            showAlert(`A comparação das alternativas para "${appState.criteria[i]}" está inconsistente (CR > 0.10). Por favor, revise!`, 'error');
+            showAlert(`❌ INCONSISTÊNCIA DETECTADA nas Alternativas!\n\nCritério: "${appState.criteria[i]}"\nCR = ${AHP.formatCR(analysis.cr)} (máximo permitido: 0.10)\n\nO método AHP exige consistência lógica nas comparações. Por favor, revise seus julgamentos.`, 'error');
             document.getElementById('current-criterion').value = i;
             renderAlternativesComparisons(i);
             switchTab('alternatives-judgments');
@@ -646,10 +629,45 @@ function calculateResults() {
 }
 
 function renderResults() {
+    // Resultados principais
     renderRanking();
     renderPrioritiesChart();
     renderDetailedAnalysis();
     renderCriteriaChart();
+    
+    // Inicializar análise de sensibilidade
+    initializeSensitivityAnalysis();
+    
+    // Event listeners para tabs de resultados
+    document.querySelectorAll('.results-tabs .tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.getAttribute('data-tab');
+            switchResultsTab(tabName);
+        });
+    });
+}
+
+function switchResultsTab(tabName) {
+    // Atualizar botões
+    document.querySelectorAll('.results-tabs .tab-button').forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabName) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Atualizar conteúdo
+    const mainTab = document.getElementById('results-main');
+    const sensitivityTab = document.getElementById('results-sensitivity');
+    
+    if (tabName === 'results-main') {
+        mainTab.classList.add('active');
+        sensitivityTab.classList.remove('active');
+    } else {
+        mainTab.classList.remove('active');
+        sensitivityTab.classList.add('active');
+    }
 }
 
 function renderRanking() {
@@ -812,8 +830,6 @@ function saveProject() {
         data: {
             objective: appState.objective,
             criteria: appState.criteria,
-            criteriaWeights: appState.criteriaWeights,
-            useManualWeights: appState.useManualWeights,
             alternatives: appState.alternatives,
             criteriaMatrix: appState.criteriaMatrix,
             alternativesMatrices: appState.alternativesMatrices
@@ -871,8 +887,6 @@ function loadProject(projectName) {
     // Carregar dados
     appState.objective = project.data.objective;
     appState.criteria = project.data.criteria;
-    appState.criteriaWeights = project.data.criteriaWeights || [];
-    appState.useManualWeights = project.data.useManualWeights || false;
     appState.alternatives = project.data.alternatives;
     appState.criteriaMatrix = project.data.criteriaMatrix;
     appState.alternativesMatrices = project.data.alternativesMatrices;
@@ -880,14 +894,6 @@ function loadProject(projectName) {
 
     // Atualizar interface
     document.getElementById('objective-input').value = appState.objective;
-    document.getElementById('manual-weights-toggle').checked = appState.useManualWeights;
-    
-    if (appState.useManualWeights) {
-        document.getElementById('criteria-weight-input').style.display = 'block';
-        document.getElementById('criteria-weight-summary').style.display = 'block';
-        updateWeightSummary();
-    }
-    
     renderCriteriaList();
     renderAlternativesList();
     updateStepDisplay();
@@ -953,13 +959,19 @@ function resetApp() {
         appState.charts.criteria.destroy();
         appState.charts.criteria = null;
     }
+    if (appState.charts.tornado) {
+        appState.charts.tornado.destroy();
+        appState.charts.tornado = null;
+    }
+    if (appState.charts.sensitivityLines) {
+        appState.charts.sensitivityLines.destroy();
+        appState.charts.sensitivityLines = null;
+    }
 
     // Resetar estado
     appState.currentStep = 1;
     appState.objective = '';
     appState.criteria = [];
-    appState.criteriaWeights = [];
-    appState.useManualWeights = false;
     appState.alternatives = [];
     appState.criteriaMatrix = [];
     appState.alternativesMatrices = {};
@@ -969,9 +981,6 @@ function resetApp() {
 
     // Limpar interface
     document.getElementById('objective-input').value = '';
-    document.getElementById('manual-weights-toggle').checked = false;
-    document.getElementById('criteria-weight-input').style.display = 'none';
-    document.getElementById('criteria-weight-summary').style.display = 'none';
     renderCriteriaList();
     renderAlternativesList();
     updateStepDisplay();
@@ -989,6 +998,444 @@ window.onclick = function(event) {
     const modal = document.getElementById('load-modal');
     if (event.target === modal) {
         closeLoadModal();
+    }
+}
+
+// ============================================================
+// ANÁLISE DE SENSIBILIDADE
+// ============================================================
+
+function initializeSensitivityAnalysis() {
+    // Inicializar pesos temporários com os pesos originais
+    appState.sensitivityWeights = [...appState.results.criteriaPriorities];
+    
+    // Renderizar componentes
+    renderSensitivitySliders();
+    renderSensitivityRanking();
+    renderTornadoChart();
+    renderSensitivityLinesSetup();
+    renderCriticalPoints();
+}
+
+function renderSensitivitySliders() {
+    const container = document.getElementById('sensitivity-sliders');
+    const weights = appState.sensitivityWeights;
+    
+    let html = '';
+    appState.criteria.forEach((criterion, index) => {
+        const percentage = (weights[index] * 100).toFixed(1);
+        html += `
+            <div class="sensitivity-slider-item">
+                <div class="sensitivity-slider-header">
+                    <span class="criterion-name">${criterion}</span>
+                    <span class="criterion-weight" id="sens-weight-${index}">${percentage}%</span>
+                </div>
+                <input type="range" 
+                    id="sens-slider-${index}"
+                    class="sensitivity-slider" 
+                    min="0" 
+                    max="100" 
+                    step="0.5" 
+                    value="${percentage}"
+                    oninput="updateSensitivityWeight(${index}, this.value)">
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateSensitivityWeight(index, value) {
+    const newValue = parseFloat(value) / 100;
+    appState.sensitivityWeights[index] = newValue;
+    
+    // Atualizar display
+    document.getElementById(`sens-weight-${index}`).textContent = value + '%';
+    
+    // Normalizar pesos (ajustar outros proporcionalmente)
+    normalizeSensitivityWeights(index);
+    
+    // Atualizar gráficos
+    renderSensitivityRanking();
+    updateSensitivityTotal();
+}
+
+function normalizeSensitivityWeights(changedIndex) {
+    const total = appState.sensitivityWeights.reduce((sum, w) => sum + w, 0);
+    
+    // Normalizar para que soma = 1
+    if (total > 0 && Math.abs(total - 1) > 0.001) {
+        const factor = 1 / total;
+        appState.sensitivityWeights = appState.sensitivityWeights.map((w, i) => {
+            // Aplicar fator de normalização
+            return w * factor;
+        });
+        
+        // Atualizar todos os sliders e displays
+        appState.criteria.forEach((_, i) => {
+            const percentage = (appState.sensitivityWeights[i] * 100).toFixed(1);
+            const slider = document.getElementById(`sens-slider-${i}`);
+            const display = document.getElementById(`sens-weight-${i}`);
+            if (slider) slider.value = percentage;
+            if (display) display.textContent = percentage + '%';
+        });
+    }
+}
+
+function updateSensitivityTotal() {
+    const total = appState.sensitivityWeights.reduce((sum, w) => sum + w, 0);
+    const totalElement = document.getElementById('sensitivity-total');
+    const percentage = (total * 100).toFixed(1);
+    
+    totalElement.textContent = percentage + '%';
+    
+    if (Math.abs(total - 1) < 0.01) {
+        totalElement.className = 'weight-total valid';
+    } else {
+        totalElement.className = 'weight-total incomplete';
+    }
+}
+
+function renderSensitivityRanking() {
+    const container = document.getElementById('sensitivity-ranking');
+    
+    // Recalcular prioridades globais com novos pesos
+    const alternativesPriorities = [];
+    for (let i = 0; i < appState.criteria.length; i++) {
+        alternativesPriorities.push(appState.alternativesAnalysis[i].priorities);
+    }
+    
+    const newGlobalPriorities = AHP.calculateGlobalPriorities(
+        appState.sensitivityWeights,
+        alternativesPriorities
+    );
+    
+    // Criar ranking
+    const ranking = appState.alternatives.map((alt, index) => ({
+        name: alt,
+        priority: newGlobalPriorities[index],
+        originalPriority: appState.results.globalPriorities[index],
+        change: newGlobalPriorities[index] - appState.results.globalPriorities[index]
+    })).sort((a, b) => b.priority - a.priority);
+    
+    container.innerHTML = ranking.map((item, position) => {
+        const medal = position === 0 ? '🥇' : position === 1 ? '🥈' : position === 2 ? '🥉' : '';
+        const percentage = (item.priority * 100).toFixed(2);
+        const change = (item.change * 100).toFixed(2);
+        const changeClass = item.change > 0 ? 'positive' : item.change < 0 ? 'negative' : 'neutral';
+        const changeSymbol = item.change > 0 ? '↑' : item.change < 0 ? '↓' : '→';
+        
+        return `
+            <div class="ranking-item sensitivity-ranking-item">
+                <div class="ranking-position">${medal} ${position + 1}º</div>
+                <div class="ranking-details">
+                    <div class="ranking-name">${item.name}</div>
+                    <div class="ranking-bar">
+                        <div class="ranking-bar-fill" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="ranking-score">
+                        ${percentage}%
+                        <span class="ranking-change ${changeClass}">
+                            ${changeSymbol} ${Math.abs(parseFloat(change))}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderTornadoChart() {
+    if (appState.charts.tornado) {
+        appState.charts.tornado.destroy();
+    }
+    
+    const ctx = document.getElementById('tornado-chart');
+    const baseWeights = appState.results.criteriaPriorities;
+    const variation = 0.2; // ±20%
+    
+    // Calcular impacto para cada critério
+    const impacts = [];
+    
+    appState.criteria.forEach((criterion, critIndex) => {
+        // Calcular prioridade com peso aumentado
+        const weightsUp = [...baseWeights];
+        weightsUp[critIndex] = Math.min(baseWeights[critIndex] * (1 + variation), 1);
+        const totalUp = weightsUp.reduce((sum, w) => sum + w, 0);
+        const normalizedUp = weightsUp.map(w => w / totalUp);
+        
+        // Calcular prioridade com peso diminuído
+        const weightsDown = [...baseWeights];
+        weightsDown[critIndex] = Math.max(baseWeights[critIndex] * (1 - variation), 0);
+        const totalDown = weightsDown.reduce((sum, w) => sum + w, 0);
+        const normalizedDown = weightsDown.map(w => w / totalDown);
+        
+        // Calcular prioridades das alternativas
+        const alternativesPriorities = [];
+        for (let i = 0; i < appState.criteria.length; i++) {
+            alternativesPriorities.push(appState.alternativesAnalysis[i].priorities);
+        }
+        
+        const prioritiesUp = AHP.calculateGlobalPriorities(normalizedUp, alternativesPriorities);
+        const prioritiesDown = AHP.calculateGlobalPriorities(normalizedDown, alternativesPriorities);
+        
+        // Calcular máximo impacto (maior mudança entre todas alternativas)
+        let maxImpact = 0;
+        for (let i = 0; i < appState.alternatives.length; i++) {
+            const impact = Math.abs(prioritiesUp[i] - prioritiesDown[i]);
+            maxImpact = Math.max(maxImpact, impact);
+        }
+        
+        impacts.push({
+            criterion,
+            impact: maxImpact * 100 // Em percentual
+        });
+    });
+    
+    // Ordenar por impacto
+    impacts.sort((a, b) => b.impact - a.impact);
+    
+    appState.charts.tornado = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: impacts.map(i => i.criterion),
+            datasets: [{
+                label: 'Impacto da Variação (±20%)',
+                data: impacts.map(i => i.impact.toFixed(2)),
+                backgroundColor: impacts.map((_, i) => {
+                    const colors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
+                    return colors[i % colors.length];
+                })
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Impacto: ' + context.parsed.x + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Variação Máxima no Ranking (%)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderSensitivityLinesSetup() {
+    const selector = document.getElementById('sensitivity-criterion-select');
+    selector.innerHTML = appState.criteria.map((criterion, index) => 
+        `<option value="${index}">${criterion}</option>`
+    ).join('');
+    
+    renderSensitivityLines();
+}
+
+function renderSensitivityLines() {
+    if (appState.charts.sensitivityLines) {
+        appState.charts.sensitivityLines.destroy();
+    }
+    
+    const ctx = document.getElementById('sensitivity-lines-chart');
+    const critIndex = parseInt(document.getElementById('sensitivity-criterion-select').value);
+    const baseWeights = appState.results.criteriaPriorities;
+    
+    // Gerar pontos de variação (0% a 100% para o critério selecionado)
+    const points = [];
+    for (let w = 0; w <= 100; w += 5) {
+        points.push(w);
+    }
+    
+    // Calcular prioridades para cada ponto
+    const alternativesPriorities = [];
+    for (let i = 0; i < appState.criteria.length; i++) {
+        alternativesPriorities.push(appState.alternativesAnalysis[i].priorities);
+    }
+    
+    const datasets = appState.alternatives.map((alt, altIndex) => {
+        const data = points.map(weightPercent => {
+            const newWeights = [...baseWeights];
+            newWeights[critIndex] = weightPercent / 100;
+            
+            // Normalizar outros pesos
+            const remaining = 1 - newWeights[critIndex];
+            const oldRemaining = baseWeights.reduce((sum, w, i) => 
+                i === critIndex ? sum : sum + w, 0);
+            
+            if (oldRemaining > 0) {
+                for (let i = 0; i < newWeights.length; i++) {
+                    if (i !== critIndex) {
+                        newWeights[i] = baseWeights[i] * (remaining / oldRemaining);
+                    }
+                }
+            }
+            
+            const globalPriorities = AHP.calculateGlobalPriorities(newWeights, alternativesPriorities);
+            return (globalPriorities[altIndex] * 100).toFixed(2);
+        });
+        
+        return {
+            label: alt,
+            data,
+            borderColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'][altIndex % 5],
+            backgroundColor: 'transparent',
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 6
+        };
+    });
+    
+    appState.charts.sensitivityLines = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: points,
+            datasets
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: `Peso de "${appState.criteria[critIndex]}" (%)`
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Prioridade Global (%)'
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function renderCriticalPoints() {
+    const container = document.getElementById('critical-points');
+    
+    // Identificar pontos críticos onde o ranking muda
+    const baseWeights = appState.results.criteriaPriorities;
+    const criticalInfo = [];
+    
+    appState.criteria.forEach((criterion, critIndex) => {
+        // Tentar encontrar ponto de inversão entre top 2
+        const topTwo = appState.results.ranking.slice(0, 2);
+        
+        // Simular variação do peso
+        let inversionPoint = null;
+        for (let w = 0; w <= 100; w += 1) {
+            const newWeights = [...baseWeights];
+            newWeights[critIndex] = w / 100;
+            
+            // Normalizar
+            const remaining = 1 - newWeights[critIndex];
+            const oldRemaining = baseWeights.reduce((sum, weight, i) => 
+                i === critIndex ? sum : sum + weight, 0);
+            
+            if (oldRemaining > 0) {
+                for (let i = 0; i < newWeights.length; i++) {
+                    if (i !== critIndex) {
+                        newWeights[i] = baseWeights[i] * (remaining / oldRemaining);
+                    }
+                }
+            }
+            
+            const alternativesPriorities = [];
+            for (let i = 0; i < appState.criteria.length; i++) {
+                alternativesPriorities.push(appState.alternativesAnalysis[i].priorities);
+            }
+            
+            const globalPriorities = AHP.calculateGlobalPriorities(newWeights, alternativesPriorities);
+            
+            // Verificar se houve inversão
+            const alt1Index = topTwo[0].index;
+            const alt2Index = topTwo[1].index;
+            
+            if (globalPriorities[alt1Index] < globalPriorities[alt2Index]) {
+                inversionPoint = w;
+                break;
+            }
+        }
+        
+        if (inversionPoint) {
+            criticalInfo.push({
+                criterion,
+                currentWeight: (baseWeights[critIndex] * 100).toFixed(1),
+                inversionPoint: inversionPoint.toFixed(1),
+                change: Math.abs(inversionPoint - baseWeights[critIndex] * 100).toFixed(1),
+                winner: topTwo[1].name,
+                loser: topTwo[0].name
+            });
+        }
+    });
+    
+    if (criticalInfo.length === 0) {
+        container.innerHTML = `
+            <div class="info-message" style="background: var(--success-light);">
+                ✅ <strong>Decisão Robusta!</strong><br>
+                Não foram encontrados pontos críticos de inversão nas variações testadas.
+                A alternativa vencedora mantém sua posição em cenários variados.
+            </div>
+        `;
+    } else {
+        let html = `
+            <p class="help-text">
+                ⚠️ Pontos onde pequenas mudanças nos pesos podem alterar o ranking:
+            </p>
+        `;
+        
+        criticalInfo.forEach(info => {
+            html += `
+                <div class="critical-point-card">
+                    <h4>🎯 ${info.criterion}</h4>
+                    <div class="critical-point-details">
+                        <div class="critical-point-item">
+                            <span class="label">Peso Atual:</span>
+                            <span class="value">${info.currentWeight}%</span>
+                        </div>
+                        <div class="critical-point-item">
+                            <span class="label">Ponto de Inversão:</span>
+                            <span class="value critical">${info.inversionPoint}%</span>
+                        </div>
+                        <div class="critical-point-item">
+                            <span class="label">Margem:</span>
+                            <span class="value">±${info.change}%</span>
+                        </div>
+                        <div class="critical-point-impact">
+                            Se "${info.criterion}" alcançar ${info.inversionPoint}%, 
+                            <strong>${info.winner}</strong> ultrapassará <strong>${info.loser}</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
     }
 }
 

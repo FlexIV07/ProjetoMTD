@@ -63,35 +63,16 @@
             <section id="step-2" class="step-content">
                 <h2>📊 Defina os Critérios de Avaliação</h2>
                 <p class="help-text">Adicione os fatores importantes para sua decisão (mínimo 2, máximo 10)</p>
-                
-                <!-- Toggle para modo de peso -->
-                <div class="weight-mode-toggle">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="manual-weights-toggle" onchange="toggleWeightMode()">
-                        <span class="toggle-text">
-                            <span class="toggle-icon">⚖️</span>
-                            Definir pesos manualmente (ao invés de comparar depois)
-                        </span>
-                    </label>
-                    <small class="toggle-hint">Ative se você já sabe a importância relativa de cada critério</small>
+                <div class="ahp-info-box">
+                    <strong>⚖️ Método AHP (Analytic Hierarchy Process)</strong>
+                    <p>No próximo passo, você comparará estes critérios par a par. O sistema calculará automaticamente os pesos através do método matemático de Saaty.</p>
                 </div>
-
                 <div class="form-group">
                     <div class="input-with-button">
                         <input type="text" id="criteria-input" placeholder="Ex: Preço, Segurança, Consumo" class="input-field">
-                        <input type="number" id="criteria-weight-input" placeholder="Peso (%)" class="input-field weight-input" min="0" max="100" step="0.1" style="display: none;">
                         <button class="btn btn-add" onclick="addCriterion()">➕ Adicionar</button>
                     </div>
                 </div>
-                
-                <div id="criteria-weight-summary" class="weight-summary" style="display: none;">
-                    <div class="weight-summary-content">
-                        <span class="weight-label">Soma dos pesos:</span>
-                        <span id="weight-total" class="weight-total">0%</span>
-                        <span id="weight-status" class="weight-status"></span>
-                    </div>
-                </div>
-
                 <div id="criteria-list" class="items-list"></div>
                 <div class="actions">
                     <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
@@ -103,6 +84,10 @@
             <section id="step-3" class="step-content">
                 <h2>🎲 Defina as Alternativas</h2>
                 <p class="help-text">Adicione as opções que serão avaliadas (mínimo 2, máximo 10)</p>
+                <div class="ahp-info-box">
+                    <strong>⚖️ Método AHP (Analytic Hierarchy Process)</strong>
+                    <p>No próximo passo, você comparará estas alternativas par a par para cada critério. Os desempenhos serão calculados automaticamente.</p>
+                </div>
                 <div class="form-group">
                     <div class="input-with-button">
                         <input type="text" id="alternative-input" placeholder="Ex: Modelo X, Modelo Y, Modelo Z" class="input-field">
@@ -132,8 +117,19 @@
                     <div class="judgments-header">
                         <h3>Comparação dos Critérios</h3>
                         <p>Em relação ao objetivo: <strong id="objective-display-1"></strong></p>
-                        <div id="criteria-consistency" class="consistency-info"></div>
                     </div>
+                    
+                    <!-- Índice de Consistência FIXO no Topo -->
+                    <div class="consistency-realtime-panel sticky">
+                        <div class="consistency-compact">
+                            <div class="consistency-title">
+                                <span class="icon">📊</span>
+                                <span>Índice de Consistência em Tempo Real</span>
+                            </div>
+                            <div id="criteria-consistency" class="consistency-metrics-compact"></div>
+                        </div>
+                    </div>
+                    
                     <div id="criteria-comparisons" class="comparisons-container"></div>
                 </div>
 
@@ -145,8 +141,19 @@
                             <label>Critério atual:</label>
                             <select id="current-criterion" class="select-field"></select>
                         </div>
-                        <div id="alternatives-consistency" class="consistency-info"></div>
                     </div>
+                    
+                    <!-- Índice de Consistência FIXO no Topo -->
+                    <div class="consistency-realtime-panel sticky">
+                        <div class="consistency-compact">
+                            <div class="consistency-title">
+                                <span class="icon">📊</span>
+                                <span>Índice de Consistência - Critério Atual</span>
+                            </div>
+                            <div id="alternatives-consistency" class="consistency-metrics-compact"></div>
+                        </div>
+                    </div>
+                    
                     <div id="alternatives-comparisons" class="comparisons-container"></div>
                 </div>
 
@@ -160,26 +167,86 @@
             <section id="step-5" class="step-content">
                 <h2>🏆 Resultados da Análise AHP</h2>
                 
-                <div class="results-overview">
-                    <div class="result-card">
-                        <h3>Ranking das Alternativas</h3>
-                        <div id="ranking-list" class="ranking-container"></div>
+                <!-- Tabs de Resultados -->
+                <div class="tabs results-tabs">
+                    <button class="tab-button active" data-tab="results-main">📊 Resultados Principais</button>
+                    <button class="tab-button" data-tab="results-sensitivity">📈 Análise de Sensibilidade</button>
+                </div>
+
+                <!-- Tab: Resultados Principais -->
+                <div id="results-main" class="tab-content active">
+                    <div class="results-overview">
+                        <div class="result-card">
+                            <h3>Ranking das Alternativas</h3>
+                            <div id="ranking-list" class="ranking-container"></div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3>Distribuição de Prioridades</h3>
+                            <canvas id="priorities-chart"></canvas>
+                        </div>
                     </div>
 
                     <div class="result-card">
-                        <h3>Distribuição de Prioridades</h3>
-                        <canvas id="priorities-chart"></canvas>
+                        <h3>Análise Detalhada por Critério</h3>
+                        <div id="detailed-analysis" class="detailed-table"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>Pesos dos Critérios</h3>
+                        <canvas id="criteria-chart"></canvas>
                     </div>
                 </div>
 
-                <div class="result-card">
-                    <h3>Análise Detalhada por Critério</h3>
-                    <div id="detailed-analysis" class="detailed-table"></div>
-                </div>
+                <!-- Tab: Análise de Sensibilidade -->
+                <div id="results-sensitivity" class="tab-content">
+                    <div class="sensitivity-info">
+                        <p class="help-text">
+                            📈 A análise de sensibilidade mostra como o ranking mudaria se você alterasse os pesos dos critérios. 
+                            Isso ajuda a entender a robustez da sua decisão.
+                        </p>
+                    </div>
 
-                <div class="result-card">
-                    <h3>Pesos dos Critérios</h3>
-                    <canvas id="criteria-chart"></canvas>
+                    <div class="result-card">
+                        <h3>🎯 Análise Interativa - Ajuste os Pesos</h3>
+                        <p class="help-text">Mova os sliders para ver como o ranking muda em tempo real</p>
+                        <div id="sensitivity-sliders" class="sensitivity-sliders-container"></div>
+                        <div class="sensitivity-summary">
+                            <div class="weight-total-display">
+                                <span>Soma dos pesos:</span>
+                                <span id="sensitivity-total" class="weight-total">100%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>📊 Ranking Dinâmico</h3>
+                        <div id="sensitivity-ranking" class="ranking-container"></div>
+                    </div>
+
+                    <div class="results-overview">
+                        <div class="result-card">
+                            <h3>🌪️ Gráfico de Tornado - Sensibilidade por Critério</h3>
+                            <p class="help-text">Mostra o impacto de variar cada critério em ±20%</p>
+                            <canvas id="tornado-chart"></canvas>
+                        </div>
+
+                        <div class="result-card">
+                            <h3>📉 Linhas de Sensibilidade</h3>
+                            <p class="help-text">Como cada alternativa varia ao mudar um critério específico</p>
+                            <div class="form-group">
+                                <label>Selecione o critério para análise:</label>
+                                <select id="sensitivity-criterion-select" class="select-field" onchange="renderSensitivityLines()">
+                                </select>
+                            </div>
+                            <canvas id="sensitivity-lines-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>🎯 Pontos Críticos</h3>
+                        <div id="critical-points" class="critical-points-container"></div>
+                    </div>
                 </div>
 
                 <div class="actions">

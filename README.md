@@ -1,10 +1,12 @@
 # 🎯 AHP Decisor Universal
 
-Um aplicativo web completo e intuitivo para tomada de decisões complexas utilizando o **Método AHP (Analytic Hierarchy Process)**.
+Um aplicativo web completo e intuitivo para tomada de decisões complexas utilizando o **Método AHP (Analytic Hierarchy Process)** de Thomas L. Saaty.
 
 ## 📋 Sobre o Projeto
 
-O AHP Decisor Universal é uma ferramenta genérica que implementa o método de análise hierárquica para auxiliar na tomada de decisões estruturadas. O aplicativo guia o usuário através de um processo passo a passo, desde a definição do objetivo até a obtenção de um ranking final das alternativas.
+O AHP Decisor Universal é uma implementação **rigorosa e fiel** do método AHP desenvolvido por Thomas Saaty. O aplicativo implementa o método científico completo: comparações par a par usando a Escala de Saaty, cálculo matemático dos pesos através do autovetor principal, validação obrigatória de consistência (CR ≤ 0.10), e análise de sensibilidade para validação da robustez da decisão.
+
+**✅ Conformidade Acadêmica**: Implementação cientificamente correta, adequada para uso em pesquisas e trabalhos acadêmicos.
 
 ## ✨ Funcionalidades
 
@@ -16,20 +18,23 @@ O AHP Decisor Universal é uma ferramenta genérica que implementa o método de 
 4. **Julgamentos Par a Par** - Compare elementos usando a Escala de Saaty
 5. **Resultados e Análise** - Visualize o ranking e análise detalhada
 
-### ⚖️ Comparações Par a Par Intuitivas
+### ⚖️ Comparações Par a Par (Método AHP Puro de Saaty)
 
-- **Interface com sliders interativos** usando a Escala de Saaty (1-9)
-- **Comparação de critérios** em relação ao objetivo OU **pesos manuais diretos** 🆕
+- **Interface com sliders interativos** usando a Escala Fundamental de Saaty (1-9)
+- **Comparação de critérios** em relação ao objetivo
 - **Comparação de alternativas** para cada critério
 - **Feedback visual em tempo real** do valor atribuído
+- **Propriedade de reciprocidade** automática (aij = 1/aji)
 
-### 📊 Cálculos Automáticos AHP
+### 📊 Cálculos Matemáticos do AHP (Método de Saaty)
 
-- Cálculo de **vetores de prioridade** (método da média geométrica)
-- **Verificação automática de consistência** (CI e CR)
-- Alertas quando **CR > 0.10** (julgamentos inconsistentes)
-- **Síntese global** das prioridades
-- Bloqueio de avanço até consistência adequada
+- Cálculo do **autovetor principal** (método da média geométrica)
+- Cálculo de **Lambda Max** (λmax)
+- Cálculo do **Índice de Consistência** (CI)
+- Cálculo da **Razão de Consistência** (CR)
+- **Validação obrigatória**: CR ≤ 0.10 (Critério de Saaty)
+- Bloqueio de avanço se inconsistência detectada
+- Os pesos são **DERIVADOS** matematicamente, não atribuídos arbitrariamente
 
 ### 🏆 Resultados Completos
 
@@ -39,6 +44,15 @@ O AHP Decisor Universal é uma ferramenta genérica que implementa o método de 
 - **Tabela de contribuições** ponderadas por critério
 - **Visualização dos pesos** de cada critério
 
+### 📈 Análise de Sensibilidade (NOVÍSSIMO!)
+
+- **Sliders interativos** - Ajuste pesos em tempo real e veja mudanças no ranking
+- **Gráfico de Tornado** - Identifica critérios mais críticos para a decisão
+- **Linhas de Sensibilidade** - Mostra como alternativas variam ao mudar cada critério
+- **Pontos Críticos** - Identifica valores exatos onde o ranking inverte
+- **Validação de Robustez** - Saiba se sua decisão é sólida ou frágil
+- **Análise "E Se"** - Teste cenários hipotéticos instantaneamente
+
 ### 💾 Gerenciamento de Projetos
 
 - **Salvar projetos** com nome personalizado
@@ -47,14 +61,6 @@ O AHP Decisor Universal é uma ferramenta genérica que implementa o método de 
 - **Excluir projetos** antigos
 - **Persistência local** - dados não são perdidos ao fechar o navegador
 
-### 🆕 Pesos Manuais de Critérios (NOVO!)
-
-- **Toggle para ativar** modo de pesos manuais
-- **Definir percentuais diretamente** ao invés de comparar
-- **Indicador visual** de soma dos pesos em tempo real
-- **Validação automática** para garantir soma = 100%
-- **Economiza tempo** ao pular comparações de critérios
-- **Ideal quando** você já sabe a importância relativa exata
 
 ### 🎨 Design Moderno
 
@@ -75,15 +81,22 @@ O AHP Decisor Universal é uma ferramenta genérica que implementa o método de 
 ### Uso Básico
 
 1. **Defina seu objetivo**: "Comprar um carro novo", "Escolher um fornecedor", etc.
+
 2. **Adicione critérios**: Preço, Qualidade, Prazo, Localização, etc.
-   - **Opção A** 🆕: Ative "Pesos manuais" e defina percentuais (ex: Preço 40%, Qualidade 35%)
-   - **Opção B**: Use comparações par a par tradicionais
+
 3. **Adicione alternativas**: As opções que você está considerando
-4. **Faça os julgamentos**:
-   - Compare os critérios entre si (se não usou pesos manuais)
-   - Compare as alternativas para cada critério
+
+4. **Faça os julgamentos par a par** (Método AHP):
+   - **Compare os critérios** entre si usando a Escala de Saaty (1-9)
+   - **Compare as alternativas** para cada critério
    - Use o slider para definir a importância relativa
-5. **Analise os resultados**: Veja o ranking e a análise detalhada
+   - O sistema **calcula automaticamente** os pesos via método matemático
+   - **Validação obrigatória**: CR ≤ 0.10 para consistência
+
+5. **Analise os resultados**: 
+   - Veja o ranking final
+   - Explore a **análise de sensibilidade** para validar robustez
+   - Teste cenários "e se...?"
 
 ### Escala de Saaty
 
@@ -195,13 +208,13 @@ AHP-Decisor-Universal/
 - Saaty, T. L. (2008). *Decision making with the analytic hierarchy process*. International Journal of Services Sciences, 1(1), 83-98.
 
 ### Documentação do Projeto
-- `NOVIDADE-PESOS-MANUAIS.md` - Guia completo da funcionalidade de pesos manuais 🆕
+- `REFATORACAO-AHP-PURO.md` - **Explicação da conformidade com método de Saaty** ⭐
+- `ANALISE-SENSIBILIDADE.md` - Guia completo de análise de sensibilidade
 - `GUIA-RAPIDO.md` - Referência rápida para uso imediato
 - `COMO-USAR.txt` - Manual detalhado passo a passo
 - `exemplo-uso.md` - Caso prático completo resolvido
 - `ARQUITETURA.md` - Documentação técnica para desenvolvedores
 - `ESTRUTURA-DO-PROJETO.md` - Organização dos arquivos
-- `RESUMO-IMPLEMENTACAO.md` - Status e features implementadas
 
 ## 📄 Licença
 
