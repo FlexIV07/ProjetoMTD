@@ -816,7 +816,285 @@ function renderCriteriaChart() {
 }
 
 // ============================================================
-// SALVAR E CARREGAR PROJETOS
+// EXPORTAR E IMPORTAR ANÁLISES (ARQUIVO)
+// ============================================================
+
+/**
+ * Exporta a análise atual como arquivo JSON
+ */
+function exportAnalysis() {
+    // Verificar se há dados para exportar
+    if (!appState.objective && appState.criteria.length === 0 && appState.alternatives.length === 0) {
+        showAlert('Não há análise para exportar. Preencha pelo menos o objetivo!', 'warning');
+        return;
+    }
+
+    const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        appName: 'AHP Decisor Universal',
+        analysis: {
+            objective: appState.objective,
+            criteria: appState.criteria,
+            alternatives: appState.alternatives,
+            criteriaMatrix: appState.criteriaMatrix,
+            alternativesMatrices: appState.alternativesMatrices,
+            // Incluir resultados se existirem
+            results: appState.results ? {
+                criteriaPriorities: appState.results.criteriaPriorities,
+                alternativesPriorities: appState.results.alternativesPriorities,
+                globalPriorities: appState.results.globalPriorities,
+                ranking: appState.results.ranking
+            } : null
+        }
+    };
+
+    // Criar nome do arquivo baseado no objetivo
+    const fileName = appState.objective 
+        ? `AHP_${appState.objective.replace(/[^a-zA-Z0-9áéíóúãõâêîôûàèìòùç\s]/gi, '').replace(/\s+/g, '_').substring(0, 30)}_${formatDateForFileName()}.json`
+        : `AHP_Analise_${formatDateForFileName()}.json`;
+
+    // Criar blob e baixar
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showAlert(`Análise exportada com sucesso! Arquivo: ${fileName}`, 'success');
+}
+
+/**
+ * Formata data para nome de arquivo
+ */
+function formatDateForFileName() {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Abre modal para importar análise
+ */
+function openImportModal() {
+    document.getElementById('import-modal').style.display = 'block';
+    // Limpar input file
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-preview').innerHTML = '<p class="empty-message">Selecione um arquivo JSON para visualizar.</p>';
+    document.getElementById('confirm-import-btn').disabled = true;
+}
+
+/**
+ * Fecha modal de importação
+ */
+function closeImportModal() {
+    document.getElementById('import-modal').style.display = 'none';
+}
+
+/**
+ * Processa arquivo selecionado para importação
+ */
+function handleImportFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.name.endsWith('.json')) {
+        showAlert('Por favor, selecione um arquivo JSON válido!', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validar estrutura do arquivo
+            if (!validateImportData(data)) {
+                showAlert('Arquivo inválido! Estrutura não reconhecida.', 'error');
+                return;
+            }
+
+            // Armazenar dados para importação
+            window.pendingImportData = data;
+            
+            // Mostrar preview
+            renderImportPreview(data);
+            document.getElementById('confirm-import-btn').disabled = false;
+
+        } catch (error) {
+            console.error('Erro ao ler arquivo:', error);
+            showAlert('Erro ao ler o arquivo. Verifique se é um JSON válido.', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Valida estrutura dos dados importados
+ */
+function validateImportData(data) {
+    // Verificar se tem a estrutura esperada
+    if (!data || !data.analysis) return false;
+    
+    const analysis = data.analysis;
+    
+    // Deve ter pelo menos objetivo ou critérios ou alternativas
+    if (!analysis.objective && 
+        (!analysis.criteria || analysis.criteria.length === 0) && 
+        (!analysis.alternatives || analysis.alternatives.length === 0)) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Renderiza preview dos dados a serem importados
+ */
+function renderImportPreview(data) {
+    const preview = document.getElementById('import-preview');
+    const analysis = data.analysis;
+    
+    let html = `
+        <div class="import-preview-content">
+            <div class="preview-item">
+                <span class="preview-label">📌 Objetivo:</span>
+                <span class="preview-value">${escapeHtml(analysis.objective) || '<em>Não definido</em>'}</span>
+            </div>
+            
+            <div class="preview-item">
+                <span class="preview-label">📊 Critérios:</span>
+                <span class="preview-value">${analysis.criteria?.length || 0} definido(s)</span>
+            </div>
+            ${analysis.criteria?.length > 0 ? `
+                <ul class="preview-list">
+                    ${analysis.criteria.map(c => `<li>${escapeHtml(c)}</li>`).join('')}
+                </ul>
+            ` : ''}
+            
+            <div class="preview-item">
+                <span class="preview-label">🎲 Alternativas:</span>
+                <span class="preview-value">${analysis.alternatives?.length || 0} definida(s)</span>
+            </div>
+            ${analysis.alternatives?.length > 0 ? `
+                <ul class="preview-list">
+                    ${analysis.alternatives.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+                </ul>
+            ` : ''}
+            
+            <div class="preview-item">
+                <span class="preview-label">⚖️ Julgamentos:</span>
+                <span class="preview-value">${analysis.criteriaMatrix?.length > 0 ? '✅ Incluídos' : '❌ Não incluídos'}</span>
+            </div>
+            
+            <div class="preview-item">
+                <span class="preview-label">🏆 Resultados:</span>
+                <span class="preview-value">${analysis.results ? '✅ Incluídos' : '❌ Não incluídos'}</span>
+            </div>
+            
+            ${data.exportDate ? `
+                <div class="preview-item preview-meta">
+                    <span class="preview-label">📅 Exportado em:</span>
+                    <span class="preview-value">${new Date(data.exportDate).toLocaleString('pt-BR')}</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    preview.innerHTML = html;
+}
+
+/**
+ * Confirma e executa a importação
+ */
+function confirmImport() {
+    const data = window.pendingImportData;
+    
+    if (!data) {
+        showAlert('Nenhum arquivo selecionado!', 'error');
+        return;
+    }
+
+    // Perguntar se deseja substituir dados atuais
+    const hasData = appState.objective || appState.criteria.length > 0 || appState.alternatives.length > 0;
+    
+    if (hasData) {
+        if (!confirm('Você tem dados na análise atual. Deseja substituí-los pelos dados importados?')) {
+            return;
+        }
+    }
+
+    // Destruir gráficos existentes antes de importar
+    destroyAllCharts();
+
+    // Importar dados
+    const analysis = data.analysis;
+    
+    appState.objective = analysis.objective || '';
+    appState.criteria = analysis.criteria || [];
+    appState.alternatives = analysis.alternatives || [];
+    appState.criteriaMatrix = analysis.criteriaMatrix || [];
+    appState.alternativesMatrices = analysis.alternativesMatrices || {};
+    appState.criteriaAnalysis = null;
+    appState.alternativesAnalysis = {};
+    appState.results = null;
+    appState.currentStep = 1;
+
+    // Atualizar interface
+    document.getElementById('objective-input').value = appState.objective;
+    renderCriteriaList();
+    renderAlternativesList();
+    updateStepDisplay();
+
+    // Fechar modal
+    closeImportModal();
+    window.pendingImportData = null;
+
+    // Se houver matrizes de julgamento, recalcular consistência
+    if (appState.criteriaMatrix.length > 0 && appState.criteria.length > 0) {
+        appState.criteriaAnalysis = AHP.analyzeConsistency(appState.criteriaMatrix);
+    }
+    
+    // Recalcular consistência das alternativas
+    Object.keys(appState.alternativesMatrices).forEach(critIndex => {
+        const matrix = appState.alternativesMatrices[critIndex];
+        if (matrix && matrix.length > 0) {
+            appState.alternativesAnalysis[critIndex] = AHP.analyzeConsistency(matrix);
+        }
+    });
+
+    showAlert('Análise importada com sucesso!', 'success');
+}
+
+/**
+ * Destrói todos os gráficos Chart.js
+ */
+function destroyAllCharts() {
+    if (appState.charts.priorities) {
+        appState.charts.priorities.destroy();
+        appState.charts.priorities = null;
+    }
+    if (appState.charts.criteria) {
+        appState.charts.criteria.destroy();
+        appState.charts.criteria = null;
+    }
+    if (appState.charts.tornado) {
+        appState.charts.tornado.destroy();
+        appState.charts.tornado = null;
+    }
+    if (appState.charts.sensitivityLines) {
+        appState.charts.sensitivityLines.destroy();
+        appState.charts.sensitivityLines = null;
+    }
+}
+
+// ============================================================
+// SALVAR E CARREGAR PROJETOS (localStorage)
 // ============================================================
 
 function saveProject() {
@@ -1046,9 +1324,14 @@ function toggleScaleReference() {
 
 // Fechar modal ao clicar fora
 window.onclick = function(event) {
-    const modal = document.getElementById('load-modal');
-    if (event.target === modal) {
+    const loadModal = document.getElementById('load-modal');
+    const importModal = document.getElementById('import-modal');
+    
+    if (event.target === loadModal) {
         closeLoadModal();
+    }
+    if (event.target === importModal) {
+        closeImportModal();
     }
 }
 

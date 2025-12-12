@@ -1658,6 +1658,8 @@ label {
 .actions {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
     gap: var(--spacing-md);
     margin-top: var(--spacing-2xl);
     padding-top: var(--spacing-xl);
@@ -1751,6 +1753,153 @@ label {
 .project-actions {
     display: flex;
     gap: var(--spacing-sm);
+}
+
+/* ============================================================
+   EXPORTAR E IMPORTAR ANÁLISES
+   ============================================================ */
+
+.btn-info {
+    background: var(--info-color);
+    color: white;
+}
+
+.btn-info:hover {
+    background: #2563EB;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.actions-left {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-md);
+}
+
+.actions-center {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-md);
+}
+
+/* Import Modal Styles */
+.import-file-section {
+    margin: var(--spacing-xl) 0;
+    text-align: center;
+}
+
+.file-input-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg) var(--spacing-2xl);
+    background: linear-gradient(135deg, var(--primary-light) 0%, #E0E7FF 100%);
+    border: 2px dashed var(--primary-color);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.file-input-label:hover {
+    background: linear-gradient(135deg, #E0E7FF 0%, var(--primary-light) 100%);
+    border-style: solid;
+    transform: scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+
+.file-icon {
+    font-size: 2rem;
+}
+
+.file-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.import-preview-section {
+    margin: var(--spacing-xl) 0;
+}
+
+.import-preview-section h3 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+    font-size: 1.2rem;
+}
+
+#import-preview {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.import-preview-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.preview-item.preview-meta {
+    background: var(--info-light);
+    border-color: var(--info-color);
+}
+
+.preview-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.preview-value {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.preview-list {
+    margin: 0;
+    padding-left: var(--spacing-xl);
+    color: var(--text-secondary);
+}
+
+.preview-list li {
+    margin: var(--spacing-xs) 0;
+    padding: var(--spacing-xs) 0;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.preview-list li:last-child {
+    border-bottom: none;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+.modal-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.modal-actions .btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 /* ============================================================
@@ -2110,6 +2259,38 @@ label {
 
     .project-actions .btn {
         flex: 1;
+    }
+
+    .actions-left,
+    .actions-center {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .actions-left .btn,
+    .actions-center .btn {
+        width: 100%;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .modal-actions .btn {
+        width: 100%;
+    }
+
+    .file-input-label {
+        padding: var(--spacing-md) var(--spacing-lg);
+        flex-direction: column;
+    }
+
+    .file-icon {
+        font-size: 1.5rem;
+    }
+
+    .file-text {
+        font-size: 1rem;
     }
 }
 

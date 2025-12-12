@@ -54,7 +54,10 @@
                     <small class="input-hint">Seja claro e específico sobre sua decisão</small>
                 </div>
                 <div class="actions">
-                    <button class="btn btn-secondary" id="load-project-btn">📂 Carregar Projeto</button>
+                    <div class="actions-left">
+                        <button class="btn btn-secondary" id="load-project-btn">📂 Carregar Projeto</button>
+                        <button class="btn btn-secondary" onclick="openImportModal()">📥 Importar Arquivo</button>
+                    </div>
                     <button class="btn btn-primary" onclick="nextStep()">Próximo →</button>
                 </div>
             </section>
@@ -251,7 +254,10 @@
 
                 <div class="actions">
                     <button class="btn btn-secondary" onclick="previousStep()">← Anterior</button>
-                    <button class="btn btn-success" id="save-project-btn">💾 Salvar Projeto</button>
+                    <div class="actions-center">
+                        <button class="btn btn-success" id="save-project-btn">💾 Salvar Projeto</button>
+                        <button class="btn btn-info" onclick="exportAnalysis()">📤 Exportar Arquivo</button>
+                    </div>
                     <button class="btn btn-primary" onclick="resetApp()">🔄 Nova Análise</button>
                 </div>
             </section>
@@ -264,6 +270,35 @@
             <span class="close" onclick="closeLoadModal()">&times;</span>
             <h2>📂 Projetos Salvos</h2>
             <div id="projects-list"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Importing Analysis -->
+    <div id="import-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeImportModal()">&times;</span>
+            <h2>📥 Importar Análise</h2>
+            <p class="help-text">Selecione um arquivo JSON exportado anteriormente</p>
+            
+            <div class="import-file-section">
+                <label for="import-file-input" class="file-input-label">
+                    <span class="file-icon">📄</span>
+                    <span class="file-text">Escolher arquivo JSON</span>
+                </label>
+                <input type="file" id="import-file-input" accept=".json" onchange="handleImportFileSelect(event)" hidden>
+            </div>
+            
+            <div class="import-preview-section">
+                <h3>📋 Pré-visualização</h3>
+                <div id="import-preview">
+                    <p class="empty-message">Selecione um arquivo JSON para visualizar.</p>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                <button class="btn btn-success" id="confirm-import-btn" onclick="confirmImport()" disabled>✓ Confirmar Importação</button>
+            </div>
         </div>
     </div>
 
