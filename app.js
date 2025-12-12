@@ -836,12 +836,22 @@ function saveProject() {
         }
     };
 
-    // Salvar no localStorage
-    const projects = getProjects();
-    projects[projectName] = project;
-    localStorage.setItem('ahp-projects', JSON.stringify(projects));
-
-    showAlert(`Projeto "${projectName}" salvo com sucesso!`, 'success');
+    try {
+        // Salvar no localStorage
+        const projects = getProjects();
+        projects[projectName] = project;
+        localStorage.setItem('ahp-projects', JSON.stringify(projects));
+        showAlert(`Projeto "${projectName}" salvo com sucesso!`, 'success');
+    } catch (error) {
+        console.error('Erro ao salvar projeto:', error);
+        
+        // Verificar se é problema de localStorage (comum quando aberto via file://)
+        if (error.name === 'SecurityError' || error.name === 'QuotaExceededError') {
+            showAlert('Erro ao salvar: o navegador não permite salvar dados localmente. Tente abrir a aplicação através de um servidor HTTP local.', 'error');
+        } else {
+            showAlert(`Erro ao salvar projeto: ${error.message}`, 'error');
+        }
+    }
 }
 
 function openLoadModal() {
@@ -853,15 +863,17 @@ function openLoadModal() {
     } else {
         projectsList.innerHTML = Object.values(projects).map(project => {
             const date = new Date(project.timestamp).toLocaleString('pt-BR');
+            // Escapar caracteres especiais no nome do projeto para uso em atributos HTML
+            const escapedName = escapeHtmlAttribute(project.name);
             return `
                 <div class="project-item">
                     <div class="project-info">
-                        <div class="project-name">${project.name}</div>
+                        <div class="project-name">${escapeHtml(project.name)}</div>
                         <div class="project-date">${date}</div>
                     </div>
                     <div class="project-actions">
-                        <button class="btn btn-primary btn-sm" onclick="loadProject('${project.name}')">Carregar</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteProject('${project.name}')">Excluir</button>
+                        <button class="btn btn-primary btn-sm" onclick="loadProject('${escapedName}')">Carregar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProject('${escapedName}')">Excluir</button>
                     </div>
                 </div>
             `;
@@ -907,22 +919,61 @@ function deleteProject(projectName) {
         return;
     }
 
-    const projects = getProjects();
-    delete projects[projectName];
-    localStorage.setItem('ahp-projects', JSON.stringify(projects));
-
-    showAlert(`Projeto "${projectName}" excluído!`, 'success');
-    openLoadModal(); // Atualizar lista
+    try {
+        const projects = getProjects();
+        delete projects[projectName];
+        localStorage.setItem('ahp-projects', JSON.stringify(projects));
+        showAlert(`Projeto "${projectName}" excluído!`, 'success');
+        openLoadModal(); // Atualizar lista
+    } catch (error) {
+        console.error('Erro ao excluir projeto:', error);
+        showAlert(`Erro ao excluir projeto: ${error.message}`, 'error');
+    }
 }
 
 function getProjects() {
-    const data = localStorage.getItem('ahp-projects');
-    return data ? JSON.parse(data) : {};
+    try {
+        const data = localStorage.getItem('ahp-projects');
+        return data ? JSON.parse(data) : {};
+    } catch (error) {
+        console.error('Erro ao carregar projetos:', error);
+        return {};
+    }
 }
 
 // ============================================================
 // UTILIDADES
 // ============================================================
+
+/**
+ * Escapa caracteres especiais para uso seguro em atributos HTML
+ * @param {string} str - String a ser escapada
+ * @returns {string} - String escapada
+ */
+function escapeHtmlAttribute(str) {
+    if (!str) return '';
+    return str
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+/**
+ * Escapa caracteres especiais para exibição em HTML
+ * @param {string} str - String a ser escapada
+ * @returns {string} - String escapada
+ */
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function showAlert(message, type = 'info') {
     const alertClass = type === 'error' ? 'alert-error' : 
